@@ -1,0 +1,13 @@
+[package]
+name = "feed_parser"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+error-chain = "0.12.4"
+reqwest= {version="0.11.13", features=["stream"]}
+tokio = { version = "1.22.0", features = ["full"] }
+feed-rs = "1.2.0"
+futures-util = "0.3"
