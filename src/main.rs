@@ -1,8 +1,9 @@
-use futures_util::StreamExt;
-
-use chrono::{DateTime, Local, TimeZone, Utc};
+use async_trait::async_trait;
+use chrono::DateTime;
 use error_chain::error_chain;
 use reqwest::{self};
+use select::document::Document;
+use select::predicate::Name;
 use tokio;
 
 error_chain! {
@@ -12,64 +13,50 @@ error_chain! {
     }
 }
 
-struct Website {
+struct Feed {
     src: String,
     prev_date: String,
     name: String,
     notify_to: String,
 }
 
-trait Feed {
-    fn is_update() -> Result<()>;
+#[async_trait]
+trait Rss {
+    async fn is_update(&self) -> Result<bool>;
 }
 
-impl Website {
-    async fn is_update(&self) -> Result<()> {
-        let mut stream = reqwest::get(&self.src).await?.bytes_stream();
+#[async_trait]
+impl Rss for Feed {
+    async fn is_update(&self) -> Result<bool> {
+        let xml = reqwest::get(&self.src).await?.text().await?;
+        let document = Document::from(xml.as_str());
+        let item = document.find(Name("item")).next().unwrap();
+        let item_pubdate = item.find(Name("pubdate")).next().unwrap().text();
 
-        while let Some(item) = stream.next().await {
-            let item = item?;
-            let xml = String::from_utf8_lossy(&item);
+        let pubdate = DateTime::parse_from_rfc2822(&item_pubdate).unwrap();
+        let old_date = DateTime::parse_from_rfc2822(&self.prev_date).unwrap();
 
-            let target: &str = "pubDate";
-            let current_time = String::from("Wed, 30 Nov 2022 16:46:18 +0800");
-            let current_time = DateTime::parse_from_rfc2822(&current_time);
-
-            let temp: Vec<&str> = xml.split("\n").collect();
-            for t in temp {
-                if t.contains(target) {
-                    let feed_time = DateTime::parse_from_rfc2822(
-                        t.replace("<pubDate>", "")
-                            .replace("</pubDate>", "")
-                            .replace("\n", "")
-                            .trim(),
-                    );
-                    if feed_time == current_time {
-                        println!("eq!");
-                    } else if feed_time.unwrap() > current_time.unwrap() {
-                        println!("gt!");
-                    } else if feed_time.unwrap() < current_time.unwrap() {
-                        println!("st!");
-                    }
-                    println!("feed: {:?}", feed_time.unwrap().to_rfc2822());
-                    println!("current: {:?}", current_time.unwrap().to_rfc2822());
-                    break;
-                }
-            }
-            break;
+        println!("old date:     {}", old_date);
+        println!("pubdate:      {}", pubdate);
+        if pubdate > old_date {
+            return Ok(true);
         }
-        Ok(())
+        Ok(false)
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut website = Website {
+    let feed = Feed {
         src: String::from("https://www.readfog.com/feed"),
-        prev_date: String::from("123"),
+        prev_date: String::from("Thu, 01 Dec 2022 06:37:37 +0000"),
         name: String::from("閱坊"),
         notify_to: String::from("discord"),
     };
-    let update_status = website.is_update().await?;
+    if feed.is_update().await? {
+        println!("new post received");
+    } else {
+        println!("false!");
+    }
     Ok(())
 }
