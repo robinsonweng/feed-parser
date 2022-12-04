@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::DateTime;
+use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
 use error_chain::error_chain;
 use reqwest::{self};
 use select::document::Document;
@@ -21,23 +21,28 @@ struct Feed {
 }
 
 #[async_trait]
-trait Rss {
+pub trait Rss {
     async fn is_update(&self) -> Result<bool>;
+    fn text_2_date(&self, context: &String) -> DateTime<FixedOffset> {
+        DateTime::parse_from_rfc2822(context).unwrap()
+    }
 }
 
 #[async_trait]
 impl Rss for Feed {
     async fn is_update(&self) -> Result<bool> {
+        // send request to get feed xml
         let xml = reqwest::get(&self.src).await?.text().await?;
         let document = Document::from(xml.as_str());
+        // iterate first item in xml, get it's datetime
         let item = document.find(Name("item")).next().unwrap();
         let item_pubdate = item.find(Name("pubdate")).next().unwrap().text();
 
-        let pubdate = DateTime::parse_from_rfc2822(&item_pubdate).unwrap();
-        let old_date = DateTime::parse_from_rfc2822(&self.prev_date).unwrap();
+        let pubdate = self.text_2_date(&item_pubdate);
+        let old_date = self.text_2_date(&self.prev_date);
 
-        println!("old date:     {}", old_date);
-        println!("pubdate:      {}", pubdate);
+        println!("old date: {}", old_date);
+        println!("pubdate:  {}", pubdate);
         if pubdate > old_date {
             return Ok(true);
         }
@@ -53,10 +58,12 @@ async fn main() -> Result<()> {
         name: String::from("閱坊"),
         notify_to: String::from("discord"),
     };
+
     if feed.is_update().await? {
         println!("new post received");
     } else {
         println!("false!");
     }
+
     Ok(())
 }
