@@ -4,6 +4,7 @@ use reqwest::{self, Error};
 use select::document::{self, Document};
 use select::predicate::Name;
 
+#[derive(Debug)]
 pub struct Feed {
     pub src: String,
     pub prev_date: String,
@@ -41,8 +42,8 @@ pub trait Rss {
     fn get_prev_date(&self) -> &String;
 
     // setters
-    fn set_prev_date(&self);
-    fn set_name(&self, value: &str);
+    fn set_prev_date(&self, value: String);
+    fn set_name(&self, value: String);
 
     fn text_2_date(&self, context: &String) -> DateTime<FixedOffset> {
         DateTime::parse_from_rfc2822(context).unwrap()
@@ -58,9 +59,6 @@ pub trait Rss {
 
         let pubdate = self.text_2_date(&item_pubdate);
         let old_date = self.text_2_date(&self.get_prev_date());
-
-        println!("old date: {}", old_date);
-        println!("pubdate:  {}", pubdate);
 
         if pubdate > old_date {
             return Ok(true);

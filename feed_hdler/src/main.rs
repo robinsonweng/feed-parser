@@ -23,10 +23,10 @@ impl Rss for Feed {
     }
 
     // setters
-    fn set_prev_date(&self) {
+    fn set_prev_date(&self, value: String) {
         !todo!()
     }
-    fn set_name(&self, value: &str) {
+    fn set_name(&self, value: String) {
         !todo!()
     }
 }
@@ -42,6 +42,8 @@ async fn main() -> Result<()> {
     } else {
         println!("false!");
     }
+
+    println!("{:?}", feed);
 
     Ok(())
 }
